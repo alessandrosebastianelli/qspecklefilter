@@ -33,4 +33,4 @@ then run
 python scripts/extract_patches.py
 ```
 
-the new dataset will be located at ```datasets/ dataset_v3```
+the new dataset will be located at ```datasets/dataset_v3```
