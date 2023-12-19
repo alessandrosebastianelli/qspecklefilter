@@ -4,7 +4,6 @@ from pyosv.io.reader import load
 import pytorch_lightning as pl
 import numpy as np
 import glob
-import sys
 import os
 
 class S1SpeckleDataset(Dataset):
@@ -62,9 +61,9 @@ class S1SpeckleDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         transform = transforms.Compose([transforms.ToTensor()])
-        self.train_dataset = S1SpeckleDataset(os.path.join('dataset', 'train'), transform=transform)
-        self.valid_dataset = S1SpeckleDataset(os.path.join('dataset', 'valid'), transform=transform)
-        self.test_dataset  = S1SpeckleDataset(os.path.join('dataset', 'test'), transform=transform)
+        self.train_dataset = S1SpeckleDataset(os.path.join('datasets', 'dataset_v2', 'training'), transform=transform)
+        self.valid_dataset = S1SpeckleDataset(os.path.join('datasets', 'dataset_v2', 'valididation'), transform=transform)
+        self.test_dataset  = S1SpeckleDataset(os.path.join('datasets', 'dataset_v2', 'testing'), transform=transform)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, persistent_workers=True)
