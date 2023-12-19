@@ -4,6 +4,9 @@ import torch
 import sys
 import os
 
+sys.path += ['.', './']
+
+
 from model import ResNetDenoiser, QResNetDenoiser
 from loader import S1SpeckleDataModule
 
