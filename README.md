@@ -11,7 +11,7 @@
 
 From the original dataset several smaller patches have been extracted to facilitate the training process of our quantum based solution.
 
-To extract patches, firstly copy dataset_v2 into datasets folder
+To extract patches, firstly copy ```dataset_v2``` into ```datasets``` folder
 
 ```
 qspecklefilter/
@@ -33,4 +33,4 @@ then run
 python scripts/extract_patches.py
 ```
 
-the new dataset is dataset_v3
+the new dataset will be located at ```datasets/ dataset_v3```
