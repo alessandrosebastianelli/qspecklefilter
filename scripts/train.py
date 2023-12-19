@@ -7,8 +7,15 @@ import os
 sys.path += ['.', './']
 
 
-from model import ResNetDenoiser, QResNetDenoiser
-from loader import S1SpeckleDataModule
+from models.ResNetDenoiser import ResNetDenoiser
+from models.QResNetDenoiser import QResNetDenoiser
+
+from dataio.loader import S1SpeckleDataModule
+
+from rasterio import logging
+log = logging.getLogger()
+log.setLevel(logging.ERROR)
+
 
 
 if __name__ == "__main__":
