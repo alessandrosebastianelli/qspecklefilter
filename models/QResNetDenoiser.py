@@ -6,12 +6,10 @@ import torch
 import sys
 sys.path += ['.', './']
 
-from hqm.circuits.angleencoding import BasicEntangledCircuit
-from hqm.layers.quanvolution import Quanvolution2D
 
 class QResNetDenoiser(pl.LightningModule):
 
-    def __init__(self, in_channels=1, n_layers=10, epochs=0, dataset_size=0):
+    def __init__(self, in_channels=3, n_layers=10, epochs=0, dataset_size=0):
         super(QResNetDenoiser, self).__init__()
 
         self.epochs=epochs
@@ -19,22 +17,11 @@ class QResNetDenoiser(pl.LightningModule):
 
         self.loss       = ssim_mse_tv_loss
         n_filter        = 64
-        self.padding = ((3 - 1) // 2, (3 - 1) // 2)
-        
-        # Quantum Layer
-        N_QUBITS      = 9
-        N_LAYERS      = 10
-        FITLERS       = 9
-        KERNELSIZE    = 3
-        STRIDE        = 1
+        self.padding    = ((3 - 1) // 2, (3 - 1) // 2)
 
-        dev      = qml.device('lightning.qubit', wires=N_QUBITS)
-        qcircuit = BasicEntangledCircuit(n_qubits=N_QUBITS, n_layers=N_LAYERS, dev=dev)
-        self.quanv    = Quanvolution2D(qcircuit=qcircuit, filters=FITLERS, kernelsize=KERNELSIZE, stride=STRIDE)
-        
         # Classic layer
         layers = []
-        layers.append(torch.nn.Conv2d(in_channels=FITLERS, out_channels=n_filter, kernel_size=3, stride=1, padding=self.padding))
+        layers.append(torch.nn.Conv2d(in_channels=in_channels, out_channels=n_filter, kernel_size=3, stride=1, padding=self.padding))
         layers.append(torch.nn.ReLU())
         # Repeated layers
         for i in range(n_layers):
@@ -49,8 +36,7 @@ class QResNetDenoiser(pl.LightningModule):
 
     def forward(self, x):
         x_input = x
-        x = self.quanv(x_input)
-        x = torch.nn.functional.pad(x, self.padding, "constant", 0)
+        x = self.quanv(x_input.cpu()).to(x.device)
         x = self.cnn(x)
         # Skip connection
         skip = x_input - x
