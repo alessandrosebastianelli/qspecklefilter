@@ -8,17 +8,10 @@ import os
 
 
 IMG_SHAPE  = (256, 256, 1)
-PATCH_SIZE = (16, 16)
+PATCH_SIZE = (64, 64)
 ROWS       = IMG_SHAPE[0]//PATCH_SIZE[0]
 COLUMNS    = IMG_SHAPE[1]//PATCH_SIZE[1]
 
-
-def write_patch(image, save_path, column, row, width, height):
-    with rasterio.open(
-        save_path, 'w',
-        driver='GTiff', width=IMG_SHAPE[0], height=IMG_SHAPE[1], count=IMG_SHAPE[2],
-        dtype=image.dtype) as dst:
-        dst.write(image, window=Window(column, row, width, height), indexes=1)
 
 def patchify(dataset):
     os.makedirs(dataset.replace('2', '3'), exist_ok=True)
