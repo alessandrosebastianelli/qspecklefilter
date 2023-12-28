@@ -2,6 +2,7 @@ from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 import pytorch_lightning as pl
 import numpy as np
+import torch
 import glob
 import os
 
@@ -13,17 +14,23 @@ class S1SpeckleDataset(Dataset):
         self.inputs.sort()
 
     def __len__(self):
-        return len(self.data)
+        return len(self.inputs)
 
     def __getitem__(self, idx):
-        speckle_full = np.load(self.inputs[idx])
-        speckle_free = np.load(self.inputs[idx].replace('input', 'ground'))
+        speckle_full_q = np.load(self.inputs[idx]).astype(np.float32)
+        speckle_free = np.load(self.inputs[idx].replace('input', 'ground')).astype(np.float32)
+        speckle_full = np.load(self.inputs[idx].replace('input', 'origin')).astype(np.float32)
+
+        speckle_full_q = np.moveaxis(speckle_full_q, 0, -1)
+        speckle_free = np.moveaxis(speckle_free, 0, -1)
+        speckle_free = np.moveaxis(speckle_free, 0, -1)
 
         if self.transform:
             speckle_free = self.transform(speckle_free)
+            speckle_full_q = self.transform(speckle_full_q)
             speckle_full = self.transform(speckle_full)
 
-        return speckle_full, speckle_free
+        return speckle_full_q, speckle_full, speckle_free
 
 class S1SpeckleDataModule(pl.LightningDataModule):
     def __init__(self, batch_size=64, num_workers=9):
