@@ -1,52 +1,55 @@
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 import pytorch_lightning as pl
-import pennylane as qml
 import torchvision
 import torch
 import sys
 sys.path += ['.', './']
 
+import pytorch_lightning as pl
+import torchvision
+import torch
+import sys
+
+sys.path += ['.', '..', './', '../']
+
 
 class QResNetDenoiser(pl.LightningModule):
 
-    def __init__(self, in_channels=3, n_layers=10, epochs=0, dataset_size=0):
+    def __init__(self, in_channels=1, n_layers=10, n_filter = 64, epochs=0, dataset_size=0):
         super(QResNetDenoiser, self).__init__()
 
         self.epochs=epochs
         self.dataset_size=dataset_size
 
         self.loss       = ssim_mse_tv_loss
-        n_filter        = 64
-        self.padding    = ((3 - 1) // 2, (3 - 1) // 2)
-
-        # Classic layer
+        padding = ((3 - 1) // 2, (3 - 1) // 2)
+        
         layers = []
-        layers.append(torch.nn.Conv2d(in_channels=in_channels, out_channels=n_filter, kernel_size=3, stride=1, padding=self.padding))
+        # Input layer
+        layers.append(torch.nn.Conv2d(in_channels=in_channels, out_channels=n_filter, kernel_size=3, stride=1, padding=padding))
         layers.append(torch.nn.ReLU())
         # Repeated layers
         for i in range(n_layers):
-            layers.append(torch.nn.Conv2d(in_channels=n_filter, out_channels=n_filter, kernel_size=3, stride=1, padding=self.padding))
+            layers.append(torch.nn.Conv2d(in_channels=n_filter, out_channels=n_filter, kernel_size=3, stride=1, padding=padding))
             layers.append(torch.nn.BatchNorm2d(n_filter))
             layers.append(torch.nn.ReLU())
         # Conversion layer
-        layers.append(torch.nn.Conv2d(in_channels=n_filter, out_channels=1, kernel_size=3, stride=1, padding=self.padding))
+        layers.append(torch.nn.Conv2d(in_channels=n_filter, out_channels=1, kernel_size=3, stride=1, padding=padding))
         self.cnn = torch.nn.Sequential(*layers)
         # Final activation
         self.sigmoid     = torch.nn.Sigmoid()
 
     def forward(self, x):
-        x_input = x
-        x = self.quanv(x_input.cpu()).to(x.device)
-        x = self.cnn(x)
+        x = self.cnn(x[0])
         # Skip connection
-        skip = x_input - x
+        skip = x[1] - x
         # Final activation
         x_output = self.sigmoid(skip)
         return x_output
 
     def training_step(self, batch, batch_idx):
-        inputs, labels = batch
-        outputs = self(inputs)
+        inputs_q, inputs, labels = batch
+        outputs = self([inputs_q, inputs])
         loss    = self.loss(outputs, labels)
 
         # Logging info
@@ -54,8 +57,8 @@ class QResNetDenoiser(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, labels = batch
-        outputs = self(inputs)
+        inputs_q, inputs, labels = batch
+        outputs = self([inputs_q, inputs])
         val_loss = self.loss(outputs, labels)
 
         # Logging info
@@ -75,7 +78,7 @@ class QResNetDenoiser(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "train_loss",
+                "monitor": "val_loss",
                 "interval": "step", # step means "batch" here, default: epoch   # New!
                 "frequency": 1, # default
             },
