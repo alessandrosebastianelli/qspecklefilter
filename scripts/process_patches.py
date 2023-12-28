@@ -20,7 +20,7 @@ def min_max(s1):
 
 def add_speckle(s1, looks = 4):
     # Numpy Gamma Distribution is defined in the shape-scale form
-    # Mean 1 Var 1/looks
+    # Mean 1 Var 1/looks                                                                 
     gamma_shape = looks
     gamma_scale = 1/looks
     noise = np.random.gamma(gamma_shape, 
@@ -44,10 +44,11 @@ def process(quanv, dataset):
         speckle_free    = min_max(speckle_free)
 
         with torch.no_grad():
-            speckle_full = quanv(torch.tensor(speckle_full[None,...]))[0,...].numpy()
+            speckle_full_q = quanv(torch.tensor(speckle_full[None,...]))[0,...].numpy()
         
-        np.save(os.path.join(dataset.replace('3', '4'), 'input', f'patch_{i}.npy'), speckle_full)
-        np.save(os.path.join(dataset.replace('3', '4'), 'ground', f'patch_{i}.npy'), speckle_free)
+        np.save(os.path.join(dataset.replace('3', '5'), 'input',  f'patch_{i}.npy'), speckle_full_q)
+        np.save(os.path.join(dataset.replace('3', '5'), 'ground', f'patch_{i}.npy'), speckle_free)
+        np.save(os.path.join(dataset.replace('3', '5'), 'origin', f'patch_{i}.npy'), speckle_full)
 
         
 if __name__== '__main__':
