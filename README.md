@@ -7,8 +7,9 @@
 
 
 ## Dataset
-[The original dataset can ba found here](https://github.com/alessandrosebastianelli/sentinel_1_GRD_dataset)
+[The original dataset can be found here](https://github.com/alessandrosebastianelli/sentinel_1_GRD_dataset)
 
+### Patch Extraction
 From the original dataset several smaller patches have been extracted to facilitate the training process of our quantum based solution.
 
 To extract patches, firstly copy ```dataset_v2``` into ```datasets``` folder
@@ -33,4 +34,6 @@ then run
 python scripts/extract_patches.py
 ```
 
-the new dataset will be located at ```datasets/dataset_v3```
+the new dataset will be located at ```datasets/dataset_v3```.
+
+### Quantum Processing
