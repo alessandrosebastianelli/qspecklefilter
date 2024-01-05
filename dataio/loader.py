@@ -22,8 +22,8 @@ class S1SpeckleDataset(Dataset):
         speckle_full = np.load(self.inputs[idx].replace('input', 'origin')).astype(np.float32)
 
         speckle_full_q = np.moveaxis(speckle_full_q, 0, -1)
-        speckle_free = np.moveaxis(speckle_free, 0, -1)
-        speckle_free = np.moveaxis(speckle_free, 0, -1)
+        speckle_free   = np.moveaxis(speckle_free, 0, -1)
+        speckle_full   = np.moveaxis(speckle_full, 0, -1)
 
         if self.transform:
             speckle_free = self.transform(speckle_free)

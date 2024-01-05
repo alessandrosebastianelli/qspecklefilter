@@ -1,4 +1,4 @@
-
+from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 import pennylane as qml
 import numpy as np
@@ -29,26 +29,39 @@ def add_speckle(s1, looks = 4):
     s1 = s1*noise
     return s1.astype(np.float32), noise.astype(np.float32)
 
-def process(quanv, dataset):
+def par_process(i, path, quanv, dataset):
+    with rasterio.open(path) as src:
+        speckle_free = src.read()
+
+    speckle_full, _ = add_speckle(speckle_free, looks=4)
+    speckle_full    = reject_outliers(speckle_full)
+    speckle_full    = min_max(speckle_full)
+    speckle_free    = reject_outliers(speckle_free)
+    speckle_free    = min_max(speckle_free)
+
+    with torch.no_grad():
+        speckle_full_q = quanv(torch.tensor(speckle_full[None,...]))[0,...].numpy()
+        
+    #if os.path.exists(os.path.join(dataset.replace('3', '4'), 'input',  f'patch_{i}.npy')):
+    #    print(os.path.join(dataset.replace('3', '4'), 'input',  f'patch_{i}.npy'))
+    
+    np.save(os.path.join(dataset.replace('3', '4'), 'input',  f'patch_{i}.npy'), speckle_full_q)
+    np.save(os.path.join(dataset.replace('3', '4'), 'ground', f'patch_{i}.npy'), speckle_free)
+    np.save(os.path.join(dataset.replace('3', '4'), 'origin', f'patch_{i}.npy'), speckle_full)
+    
+    #print(f'\r File {i} processed!!!', end='\t\t\t\t')
+    
+def process(quanv, dataset, njobs):
     os.makedirs(os.path.join(dataset.replace('3', '4'), 'input'), exist_ok=True)
     os.makedirs(os.path.join(dataset.replace('3', '4'), 'ground'), exist_ok=True)
+    os.makedirs(os.path.join(dataset.replace('3', '4'), 'origin'), exist_ok=True)
 
-    for i, path in enumerate(tqdm(glob.glob(os.path.join(dataset, "*.tif")))):
-        with rasterio.open(path) as src:
-            speckle_free = src.read()
+    res = Parallel(n_jobs=njobs)( 
+            delayed(par_process)(i, path, quanv, dataset) for i, path in enumerate(tqdm(glob.glob(os.path.join(dataset, "*.tif"))))        
+        )
 
-        speckle_full, _ = add_speckle(speckle_free, looks=4)
-        speckle_full    = reject_outliers(speckle_full)
-        speckle_full    = min_max(speckle_full)
-        speckle_free    = reject_outliers(speckle_free)
-        speckle_free    = min_max(speckle_free)
-
-        with torch.no_grad():
-            speckle_full_q = quanv(torch.tensor(speckle_full[None,...]))[0,...].numpy()
-        
-        np.save(os.path.join(dataset.replace('3', '5'), 'input',  f'patch_{i}.npy'), speckle_full_q)
-        np.save(os.path.join(dataset.replace('3', '5'), 'ground', f'patch_{i}.npy'), speckle_free)
-        np.save(os.path.join(dataset.replace('3', '5'), 'origin', f'patch_{i}.npy'), speckle_full)
+    #for i, path in enumerate(tqdm(glob.glob(os.path.join(dataset, "*.tif")))):
+       
 
         
 if __name__== '__main__':
@@ -60,11 +73,12 @@ if __name__== '__main__':
     FITLERS       = 9
     KERNELSIZE    = 3
     STRIDE        = 1
+    NJOBS         = 64
 
     dev           = qml.device('lightning.qubit', wires=N_QUBITS)
     qcircuit      = BasicEntangledCircuit(n_qubits=N_QUBITS, n_layers=N_LAYERS, dev=dev)
     quanv         = Quanvolution2D(qcircuit=qcircuit, filters=FITLERS, kernelsize=KERNELSIZE, stride=STRIDE, padding='same')
 
-    process(quanv, dataset=os.path.join(ROOT, 'training'))
-    process(quanv, dataset=os.path.join(ROOT, 'validation'))
-    process(quanv, dataset=os.path.join(ROOT, 'testing'))
+    process(quanv, dataset=os.path.join(ROOT, 'training'), njobs=NJOBS)
+    process(quanv, dataset=os.path.join(ROOT, 'validation'), njobs=NJOBS)
+    process(quanv, dataset=os.path.join(ROOT, 'testing'), njobs=NJOBS)

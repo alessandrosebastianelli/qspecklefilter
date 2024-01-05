@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
         print(f"Training with hyperparmeters: {params}")
 
-        data_module = S1SpeckleDataModule(num_workers=16, batch_size=16)
+        data_module = S1SpeckleDataModule(num_workers=4, batch_size=16)
 
         tb_logger = pl.loggers.TensorBoardLogger(os.path.join('lightning_logs','denoisers'), name='QSpeckleFilter')
 
