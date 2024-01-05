@@ -1,4 +1,6 @@
 from torchmetrics.image import StructuralSimilarityIndexMeasure
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio
 import pytorch_lightning as pl
 import torchvision
 import torch
@@ -68,6 +70,31 @@ class QResNetDenoiser(pl.LightningModule):
         self.logger.experiment.add_image(f'Noisy Image-{batch_idx}',     torchvision.utils.make_grid(inputs),  global_step=self.current_epoch)
 
         return val_loss
+    
+    def test_step(self, batch, batch_idx):
+        inputs_q, inputs, labels = batch
+        outputs = self([inputs_q, inputs])
+        test_loss = self.loss(outputs, labels)
+
+        gt = labels.detach().numpy()[:,0,...]
+        pr = outputs.detach().numpy()[:,0,...]
+
+        psnr = 0
+        ssi = 0
+
+        for i in range(gt.shape[0]):
+            psnr += peak_signal_noise_ratio(gt[i], pr[i])
+            ssidx, _ = ssim(gt[i], pr[i], full=True, data_range=1)
+            ssi += ssidx
+
+        psnr = psnr/gt.shape[0]
+        ssi  = ssi/gt.shape[0]
+
+        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True)
+        self.log('psnr', psnr, on_epoch=True, prog_bar=True)
+        self.log('ssi', ssi, on_epoch=True, prog_bar=True)
+        
+        return test_loss
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
