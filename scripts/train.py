@@ -24,7 +24,7 @@ if __name__ == "__main__":
         'in_channels'  : [9],
         'n_layers'     : [20, 40, 60],
         'n_filter'     : [32, 64, 128],
-        'epochs'       : [100],
+        'epochs'       : [20],
         'dataset_size' : [26016]
 
     }
