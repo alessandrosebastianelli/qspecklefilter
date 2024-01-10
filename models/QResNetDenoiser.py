@@ -17,12 +17,12 @@ sys.path += ['.', '..', './', '../']
 
 class QResNetDenoiser(pl.LightningModule):
 
-    def __init__(self, in_channels=1, n_layers=10, n_filter = 64, epochs=0, dataset_size=0):
+    def __init__(self, in_channels=1, n_layers=10, n_filter = 64, epochs=0, dataset_size=0, skip=False):
         super(QResNetDenoiser, self).__init__()
 
         self.epochs=epochs
         self.dataset_size=dataset_size
-        self.skip = True
+        self.skip = skip
 
         self.loss       = ssim_mse_tv_loss
         padding = ((3 - 1) // 2, (3 - 1) // 2)
@@ -43,7 +43,6 @@ class QResNetDenoiser(pl.LightningModule):
         self.sigmoid     = torch.nn.Sigmoid()
 
     def forward(self, x):
-        
         if self.skip:
             x = self.cnn(x[0])
             skip = x[1] - x
@@ -61,10 +60,13 @@ class QResNetDenoiser(pl.LightningModule):
         else:
             outputs = self(inputs_q)
         
-        loss    = self.loss(outputs, labels)
+        loss      = self.loss(outputs, labels)
+        psnr, ssi = self.metrics(labels, outputs)
 
         # Logging info
         self.log('train_loss', loss, on_epoch=True, prog_bar=True)
+        self.log('train_psnr', psnr, on_epoch=True, prog_bar=True)
+        self.log('train_ssi', ssi, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -75,13 +77,16 @@ class QResNetDenoiser(pl.LightningModule):
         else:
             outputs = self(inputs_q)
 
-        val_loss = self.loss(outputs, labels)
+        val_loss  = self.loss(outputs, labels)
+        psnr, ssi = self.metrics(labels, outputs)
 
         # Logging info
         self.log('val_loss', val_loss, on_epoch=True, prog_bar=True)
         self.logger.experiment.add_image(f'Reconstructions-{batch_idx}', torchvision.utils.make_grid(outputs), global_step=self.current_epoch)
         self.logger.experiment.add_image(f'True Image-{batch_idx}',      torchvision.utils.make_grid(labels),  global_step=self.current_epoch)
         self.logger.experiment.add_image(f'Noisy Image-{batch_idx}',     torchvision.utils.make_grid(inputs),  global_step=self.current_epoch)
+        self.log('val_psnr', psnr, on_epoch=True, prog_bar=True)
+        self.log('val_ssi', ssi, on_epoch=True, prog_bar=True)
 
         return val_loss
     
@@ -94,7 +99,15 @@ class QResNetDenoiser(pl.LightningModule):
             outputs = self(inputs_q)
 
         test_loss = self.loss(outputs, labels)
+        psnr,ssi = self.metrics(labels, outputs)
 
+        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True)
+        self.log('test_psnr', psnr, on_epoch=True, prog_bar=True)
+        self.log('test_ssi', ssi, on_epoch=True, prog_bar=True)
+        
+        return test_loss
+    
+    def metrics(self, labels, outputs):
         gt = labels.cpu().detach().numpy()[:,0,...]
         pr = outputs.cpu().detach().numpy()[:,0,...]
 
@@ -109,14 +122,10 @@ class QResNetDenoiser(pl.LightningModule):
         psnr = psnr/gt.shape[0]
         ssi  = ssi/gt.shape[0]
 
-        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True)
-        self.log('psnr', psnr, on_epoch=True, prog_bar=True)
-        self.log('ssi', ssi, on_epoch=True, prog_bar=True)
-        
-        return test_loss
+        return psnr, ssi
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.0001)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.002)
         num_steps = self.epochs * self.dataset_size
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
 
