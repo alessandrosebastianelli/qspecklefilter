@@ -22,6 +22,7 @@ class QResNetDenoiser(pl.LightningModule):
 
         self.epochs=epochs
         self.dataset_size=dataset_size
+        self.skip = True
 
         self.loss       = ssim_mse_tv_loss
         padding = ((3 - 1) // 2, (3 - 1) // 2)
@@ -42,16 +43,24 @@ class QResNetDenoiser(pl.LightningModule):
         self.sigmoid     = torch.nn.Sigmoid()
 
     def forward(self, x):
-        x = self.cnn(x[0])
-        # Skip connection
-        skip = x[1] - x
+        
+        if self.skip:
+            x = self.cnn(x[0])
+            skip = x[1] - x
+        else:
+            skip = self.cnn(x)
         # Final activation
         x_output = self.sigmoid(skip)
         return x_output
 
     def training_step(self, batch, batch_idx):
         inputs_q, inputs, labels = batch
-        outputs = self([inputs_q, inputs])
+
+        if self.skip:
+            outputs = self([inputs_q, inputs])
+        else:
+            outputs = self(inputs_q)
+        
         loss    = self.loss(outputs, labels)
 
         # Logging info
@@ -60,7 +69,12 @@ class QResNetDenoiser(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs_q, inputs, labels = batch
-        outputs = self([inputs_q, inputs])
+        
+        if self.skip:
+            outputs = self([inputs_q, inputs])
+        else:
+            outputs = self(inputs_q)
+
         val_loss = self.loss(outputs, labels)
 
         # Logging info
@@ -73,11 +87,16 @@ class QResNetDenoiser(pl.LightningModule):
     
     def test_step(self, batch, batch_idx):
         inputs_q, inputs, labels = batch
-        outputs = self([inputs_q, inputs])
+        
+        if self.skip:
+            outputs = self([inputs_q, inputs])
+        else:
+            outputs = self(inputs_q)
+
         test_loss = self.loss(outputs, labels)
 
-        gt = labels.detach().numpy()[:,0,...]
-        pr = outputs.detach().numpy()[:,0,...]
+        gt = labels.cpu().detach().numpy()[:,0,...]
+        pr = outputs.cpu().detach().numpy()[:,0,...]
 
         psnr = 0
         ssi = 0
@@ -121,4 +140,4 @@ def ssim_mse_tv_loss(y_true, y_pred):
     tv_loss   = torch.mean(torch.sum(torch.abs(y_pred[:, :, :, :-1] - y_pred[:, :, :, 1:])) +
                         torch.sum(torch.abs(y_pred[:, :, :-1, :] - y_pred[:, :, 1:, :])))
     
-    return ssim_loss.to(device) + mse_loss.to(device) + mae_loss.to(device) + 0.000001 * tv_loss.to(device)
+    return mse_loss.to(device) + ssim_loss.to(device) + 0.00001 * tv_loss.to(device)
